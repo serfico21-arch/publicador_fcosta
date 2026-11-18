@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Central do Publicador FCosta</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f6fb;--c:#fff;--tx:#0b1424;--m:#5b6784;--l:rgba(11,20,36,.13);--v:#c8182a;--n:#070d18}
+@media(prefers-color-scheme:dark){:root{--bg:#070d18;--c:#0f1729;--tx:#eaf0ff;--m:#93a0bd;--l:rgba(148,163,184,.2)}}
+*{box-sizing:border-box;margin:0}body{font:16px/1.5 'DM Sans',sans-serif;background:var(--bg);color:var(--tx);padding:20px 16px 48px}main{max-width:820px;margin:auto}
+h1{font:800 32px/1.1 'Playfair Display',serif}h2{font:700 18px 'DM Sans',sans-serif;margin:28px 0 10px}p.m,.m{color:var(--m);font-size:14px}
+.box{background:var(--c);border:1px solid var(--l);border-radius:12px;padding:14px;margin-top:14px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:10px;background:var(--v);color:#fff;font:700 15px 'DM Sans',sans-serif;text-decoration:none;border:0;cursor:pointer}.btn.o{background:none;border:1px solid var(--l);color:var(--tx)}
+:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}textarea,select{width:100%;padding:10px;border:1px solid var(--l);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}textarea{min-height:190px;margin:8px 0}
+.r{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.r select{flex:1;min-width:150px;width:auto}.tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.tools a{padding:12px;border:1px solid var(--l);border-radius:12px;background:var(--c);text-decoration:none;display:block;color:var(--tx)}.tools b{display:block}
+</style></head><body><main>
+<h1>Central do Publicador FCosta</h1><p class="m">Escolha um imóvel cadastrado no Painel ADM, copie o texto pronto e registre a publicação no mural do site.</p>
+<div class="box"><button class="btn" id="esc">Escolher imóvel do painel</button><div id="pn" hidden>
+<p style="margin-top:12px"><b id="tt"></b></p><textarea id="tx" aria-label="Texto da publicação"></textarea>
+<div class="r"><select id="cn" aria-label="Canal"><option>WhatsApp</option><option>Grupos do Facebook</option><option>Instagram</option><option>TikTok</option><option>YouTube</option><option>Geral</option></select>
+<button class="btn o" id="cp">Copiar texto</button><a class="btn o" id="wz" target="_blank" rel="noopener">Abrir WhatsApp</a><button class="btn" id="rg">Registrar no mural</button></div><p class="m" id="ms" role="status" style="margin-top:8px"></p></div></div>
+<h2>Ferramentas</h2><div class="tools">
+<a href="painel_adm.html"><b>Painel ADM</b><span class="m">Cadastrar e editar imóveis</span></a>
+<a href="publicador-fcosta.html"><b>Publicador</b><span class="m">Grupos e controle de posts</span></a>
+<a href="painel-divulgacao.html"><b>Painel de divulgação</b><span class="m">Plano e textos do dia</span></a>
+<a href="publicacao.html"><b>Publicação</b><span class="m">Criar posts</span></a>
+<a href="tour-imoveis.html"><b>Tour em vídeo</b><span class="m">Vídeo com fotos do imóvel</span></a>
+<a href="foto-editor.html"><b>Editor de fotos</b><span class="m">Tratar fotos</span></a>
+<a href="tv-fcosta.html"><b>TV FCosta</b><span class="m">Vídeos e playlist</span></a>
+<a href="trafego.html"><b>Tráfego</b><span class="m">Anúncios pagos</span></a>
+<a href="kit-corretor.html"><b>Kit do corretor</b><span class="m">Modelos e materiais</span></a>
+<a href="anunciar.html"><b>Anunciar</b><span class="m">Sites e portais</span></a>
+<a href="ferramentas.html"><b>Ferramentas</b><span class="m">Todas as ferramentas</span></a></div></main>
+<script src="fcosta-imoveis.js"></script>
+<script>
+var F=FCImoveis,im=null,$=function(i){return document.getElementById(i)};
+$('esc').onclick=function(){F.escolher(function(x){im=x;$('pn').hidden=false;$('tt').textContent=x.codigo+' · '+x.titulo;$('tx').value=F.texto(x);$('ms').textContent='';$('wz').href='https://wa.me/?text='+encodeURIComponent(F.texto(x))})};
+$('tx').oninput=function(){$('wz').href='https://wa.me/?text='+encodeURIComponent($('tx').value)};
+$('cp').onclick=function(){navigator.clipboard.writeText($('tx').value).then(function(){$('ms').textContent='Texto copiado.'},function(){$('tx').select();$('ms').textContent='Selecione e copie o texto manualmente.'})};
+$('rg').onclick=function(){$('ms').textContent='Registrando…';F.publicar(im,{canal:$('cn').value,texto:$('tx').value,ferramenta:'central'}).then(function(r){$('ms').textContent=r.ok?'Publicação registrada no mural do site.':'Não foi possível gravar agora; ficou guardada neste aparelho. Libere a escrita em fcosta_publicacoes no Firebase.'})};
+</script></body></html>
