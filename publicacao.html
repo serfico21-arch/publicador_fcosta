@@ -307,21 +307,30 @@ function numPreco(v){
 }
 function capi(t){t=String(t||"").trim();return t?t.charAt(0).toUpperCase()+t.slice(1).toLowerCase():""}
 function fotoSite(u){if(!u||typeof u!=="string")return"";return(u.indexOf("res.cloudinary.com")>-1&&u.indexOf("/upload/")>-1)?u.replace("/upload/","/upload/f_auto,q_auto,w_700/"):u}
-var FBURL="https://fcosta2026-847c3-default-rtdb.firebaseio.com/fcosta_imoveis.json",syncMsg="🔄 Sincronizando com o site…",syncBusy=false,syncLast=0,opick=0;
+var DB="https://fcosta2026-847c3-default-rtdb.firebaseio.com",FAPI="AIzaSyBo3zQ-yUNJ2Zk9d6jkEpslF-bsrFcRu8I";
+function aTok(){try{var a=JSON.parse(localStorage.getItem("fcosta_auth")||"null");if(!a||!a.refresh)return Promise.resolve("");if(a.idToken&&a.exp>Date.now()+60000)return Promise.resolve(a.idToken);return fetch("https://securetoken.googleapis.com/v1/token?key="+FAPI,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(a.refresh)}).then(function(r){return r.json()}).then(function(j){if(!j.id_token)throw 0;a.idToken=j.id_token;a.refresh=j.refresh_token||a.refresh;a.exp=Date.now()+(+j.expires_in||3600)*1000;localStorage.setItem("fcosta_auth",JSON.stringify(a));return a.idToken}).catch(function(){return""})}catch(e){return Promise.resolve("")}}
+var syncMsg="🔄 Sincronizando com o site…",syncBusy=false,syncLast=0,opick=0;
 function fotoGrande(u){if(!u||typeof u!=="string")return"";return(u.indexOf("res.cloudinary.com")>-1&&u.indexOf("/upload/")>-1)?u.replace("/upload/","/upload/f_jpg,q_auto,w_1600/"):u}
 function seguro(){var a=document.activeElement;return !(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))&&tab!=="imoveis"}
 function syncTxt(){var e=document.getElementById("sync"),e2=document.getElementById("sync2");if(e)e.textContent=syncMsg;if(e2)e2.textContent=syncMsg}
+function achaFotos(i){
+ var out=[],skip=/logo|panfleto|video|tour|thumb|avatar/i;
+ function add(u){if(typeof u==="string"&&/^https?:\/\/\S+$/.test(u)&&!/\.(mp4|mov|webm|pdf)(\?|$)/i.test(u)&&(/\.(jpe?g|png|webp|gif|avif|heic)(\?|$)/i.test(u)||/supabase\.co\/storage|cloudinary|firebasestorage|googleusercontent|\/image\/upload\//i.test(u))&&out.indexOf(u)<0)out.push(u)}
+ function walk(o,k,d){if(o==null||d>4)return;if(typeof o==="string"){if(!k||!skip.test(k))add(o);return}if(Array.isArray(o)){o.forEach(function(v){walk(v,k,d+1)});return}if(typeof o==="object")Object.keys(o).forEach(function(x){walk(o[x],isNaN(+x)?x:k,d+1)})}
+ add(i.fotoDestaque);walk(i.fotos,"fotos",0);walk(i.bookFotos,"bookFotos",0);
+ ["foto","imagem","capa","imagens","fotosUrls","urls"].forEach(function(k){walk(i[k],k,0)});
+ if(!out.length)Object.keys(i).forEach(function(k){if(k!=="fotos"&&k!=="bookFotos"&&!skip.test(k))walk(i[k],k,0)});
+ return out}
 function sincronizar(manual,cb){
   if(syncBusy)return;
   if(!manual&&syncLast&&Date.now()-syncLast<60000)return;
   syncBusy=true;syncLast=Date.now();
-  fetch(FBURL,{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
+  aTok().then(function(t){return fetch(DB+"/fcosta_imoveis.json"+(t?"?auth="+encodeURIComponent(t):""),{cache:"no-store"})}).then(function(r){if(r.status===401||r.status===403)throw "perm";if(!r.ok)throw 0;return r.json()}).then(function(d){
     d=d||{};var add=0,upd=0,rem=0,ids={},keys=Object.keys(d);
     S.imoveis=S.imoveis.filter(function(x){return !/^\(Exemplo\) /.test(x.titulo||"")});
     keys.forEach(function(id){
       var i=d[id];if(!i||typeof i!=="object"||i.publicado===false||i.status==="panfleto")return;
-      var fs=i.fotos?(Array.isArray(i.fotos)?i.fotos:Object.keys(i.fotos).map(function(k){return i.fotos[k]})).filter(Boolean):[];
-      if(i.fotoDestaque&&typeof i.fotoDestaque==="string"&&fs.indexOf(i.fotoDestaque)<0)fs.unshift(i.fotoDestaque);
+      var fs=achaFotos(i);
       var pr=numPreco(i.preco),pd=pr>=700000?"alto":pr>=300000?"medio":"baixo";
       var sg={venda:"FCV",aluguel:"FCA",lancamento:"FCL",vendido:"FCV"}[i.status]||"FCV";
       var cod=i.codigo||(sg+(i.numeroCodigo?String(i.numeroCodigo).padStart(3,"0"):(String(id).slice(-3).replace(/[^0-9]/g,"").padStart(3,"0")||"001")));
@@ -340,8 +349,8 @@ function sincronizar(manual,cb){
     save();syncBusy=false;
     if(add||upd||rem){if(manual||seguro())render();else syncTxt()}else syncTxt();
     if(cb)cb(true,syncMsg);
-  }).catch(function(){
-    syncBusy=false;syncMsg="⚠️ Sem conexão com o site agora. Usando os imóveis já salvos.";syncTxt();
+  }).catch(function(e){
+    syncBusy=false;syncMsg=(e==="perm")?"⚠️ O Firebase pediu acesso. Abra a Central (index.html), toque em “🔑 Acesso total” e entre com e-mail e senha: depois volte aqui.":"⚠️ Sem conexão com o site agora. Usando os imóveis já salvos.";syncTxt();
     if(cb)cb(false,syncMsg);
   });
 }
