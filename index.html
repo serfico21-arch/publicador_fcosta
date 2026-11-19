@@ -101,6 +101,8 @@ function norm(d){
   .filter(function(i){if(!i)return false;if(i.publicado===false||i.status==='panfleto'||/^\(Exemplo\)/.test(i.titulo||'')){ign++;return false}return true})
   .sort(function(a,b){return (a.status==='vendido')-(b.status==='vendido')||String(b.atualizado||b.criado||'').localeCompare(String(a.atualizado||a.criado||''))});
  return {l:l,tot:tot,ign:ign}}
+var PEDIDO=(new URLSearchParams(location.search).get('id')||'');
+function abrirPedido(){if(!PEDIDO)return;var x=ALL.filter(function(i){return i.id===PEDIDO})[0];PEDIDO='';if(x){cur=x;escolher()}else{$('cnt').textContent='⚠ Esse imóvel não está disponível para publicar (verifique se está como Publicado no site = Sim).'}}
 function carregar(){
  $('cnt').textContent='Carregando imóveis…';
  aUrl('fcosta_imoveis').then(function(u){return fetch(u)}).then(function(r){
@@ -110,7 +112,7 @@ function carregar(){
   if(!d||!Object.keys(d).length){ALL=[];lista();$('cnt').textContent='O Painel ADM está sem imóveis cadastrados (nada em fcosta_imoveis).';return}
   var n=norm(d);ALL=n.l;
   try{localStorage.setItem('fcosta_idx_cache',JSON.stringify({t:Date.now(),d:d}))}catch(e){}
-  lista();
+  lista();abrirPedido();
   if(!ALL.length)$('cnt').textContent='Há '+n.tot+' item(ns) no Painel ADM, mas todos estão como panfleto ou “Publicado no site = Não”. Ative “Publicado no Site? Sim” no Painel ADM.'}).catch(function(e){
   var msg=e==='perm'?'O Firebase não deixou ler os imóveis (regras de segurança). Veja a nota abaixo.':'Sem conexão com o Painel ADM agora.',c=null;
   try{c=JSON.parse(localStorage.getItem('fcosta_idx_cache')||'null')}catch(x){}
