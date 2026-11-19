@@ -118,6 +118,9 @@ function load(){try{var r=localStorage.getItem(KEY);if(r)merge(JSON.parse(r))}ca
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function uid(){return Math.random().toString(36).slice(2,9)}
+function nlk(u){return String(u||"").toLowerCase().replace(/^https?:\/\/(www\.|m\.|web\.|mbasic\.)?facebook\.com/,"").replace(/[?#].*$/,"").replace(/\/+$/,"")}
+function gAdd(nome,url,nicho){var k=url?nlk(url):"";if(S.grupos.some(function(g){return k?(g.url&&nlk(g.url)===k):(!g.url&&g.nome===nome)}))return 0;S.grupos.push({id:uid(),nome:nome,url:url||"",nicho:nicho||"",last:0});return 1}
+function trazerGruposPub(){var n=0;try{var a=JSON.parse(localStorage.getItem("pubfc")||"null");if(a&&Array.isArray(a.g))a.g.forEach(function(g){if(g&&(g.n||g.l))n+=gAdd(g.n||("Grupo "+String(g.l).slice(-18)),g.l||"","")});var c=JSON.parse(localStorage.getItem("fcosta_grupos_idx")||"null");if(Array.isArray(c))c.forEach(function(g){if(g&&(g.n||g.l))n+=gAdd(g.n||"Grupo",g.l||"","")})}catch(e){}if(n)save();return n}
 function hoje(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()}
 function brl(v){var n=parseFloat(v);return isNaN(n)?"":n.toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0})}
 function livre(i){return !i.lockedUntil||i.lockedUntil<Date.now()}
@@ -180,7 +183,8 @@ function vHoje(){
     var alto=Object.keys(sel).filter(function(k){return sel[k]&&byId(S.imoveis,k).padrao==="alto"}).length;
     h+='<div class="row"><span class="mut">'+ns+'/3 selecionados · '+S.grupos.length+' grupos cadastrados · '+S.cfg.porImovel+' grupos por imóvel</span><button class="b" data-act="gerar"'+((ns<1||ns>3||alto>1||!S.grupos.length)?" disabled":"")+'>Gerar plano</button></div>';
     if(alto>1)h+='<p class="warn">Escolha no máximo 1 imóvel de alto padrão.</p>';
-    if(!S.grupos.length&&S.imoveis.length)h+='<p class="warn">Cadastre seus grupos na aba Grupos.</p>';
+    if(ns<1&&S.imoveis.length)h+='<p class="warn">Marque de 1 a 3 imóveis acima para liberar o botão.</p>';
+    if(!S.grupos.length&&S.imoveis.length)h+='<p class="warn">Para gerar o plano você precisa de grupos cadastrados. <button class="g" data-tab="grupos">👥 Ir para Grupos</button></p>';
     h+='</div>';
   }else{
     var feitos=S.plan.filter(function(p){return p.done}).length;
@@ -295,7 +299,7 @@ function vPortfolio(){
 }
 
 function numPreco(v){
-  if(!v)return"";if(typeof v==="number")return v;var s=String(v).trim(),n;
+  if(!v)return"";if(typeof v==="number")return v;var s=String(v).replace(/[^\d.,]/g,"").trim(),n;if(!s)return"";
   if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))n=parseFloat(s.replace(/\./g,"").replace(",","."));
   else if(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))n=parseFloat(s.replace(/,/g,""));
   else n=parseFloat(s.replace(",",".").replace(/[^\d.]/g,""));
@@ -321,7 +325,7 @@ function sincronizar(manual,cb){
       var pr=numPreco(i.preco),pd=pr>=700000?"alto":pr>=300000?"medio":"baixo";
       var sg={venda:"FCV",aluguel:"FCA",lancamento:"FCL",vendido:"FCV"}[i.status]||"FCV";
       var cod=i.codigo||(sg+(i.numeroCodigo?String(i.numeroCodigo).padStart(3,"0"):(String(id).slice(-3).replace(/[^0-9]/g,"").padStart(3,"0")||"001")));
-      var dados={siteId:id,titulo:i.titulo||"Imóvel FCosta",tipo:capi(i.tipo)||"Casa",preco:pr,bairro:i.bairro||"",cidade:i.cidade||"São Paulo",quartos:i.quartos||"",banheiros:i.banheiros||"",vagas:i.vagas||"",area:i.area||"",padrao:pd,finalidade:i.status==="aluguel"?"Aluguel":(i.status==="lancamento"?"Lançamento":"Venda"),codigo:cod,descricao:(i.descricao||"").trim(),foto:fotoSite(fs[0]),fts:fs.slice(0,12),fotos:"https://"+siteU()+"/imovel?id="+encodeURIComponent(id),vendido:i.status==="vendido"};
+      var dados={siteId:id,slug:i.slug||"",titulo:i.titulo||"Imóvel FCosta",tipo:capi(i.tipo)||"Casa",preco:pr,bairro:i.bairro||"",cidade:cid(i.cidade)||"São Paulo",quartos:i.quartos||"",banheiros:i.banheiros||"",vagas:i.vagas||"",area:i.area||"",padrao:pd,finalidade:i.status==="aluguel"?"Aluguel":(i.status==="lancamento"?"Lançamento":"Venda"),codigo:cod,descricao:(i.descricao||"").trim(),foto:fotoSite(fs[0]),fts:fs.slice(0,12),fotos:(/^[a-z0-9-]+$/.test(String(i.slug||"").replace(/^\/+|\/+$/g,""))?"https://"+siteU()+"/"+String(i.slug).replace(/^\/+|\/+$/g,""):"https://"+siteU()+"/imovel?id="+encodeURIComponent(id)),vendido:i.status==="vendido"};
       ids[id]=1;
       var ex=S.imoveis.filter(function(x){return x.siteId===id})[0];
       if(ex){var mud=false;Object.keys(dados).forEach(function(k){if(JSON.stringify(ex[k])!==JSON.stringify(dados[k])){ex[k]=dados[k];mud=true}});if(mud)upd++}
@@ -384,7 +388,7 @@ function vImoveis(){
 
 function vGrupos(){
   var h='<div class="card"><h2>Adicionar grupos</h2><p class="mut">Um por linha, no formato: <b>nome | link | nicho</b> (link e nicho são opcionais).</p>'
-  +'<textarea id="bulk" placeholder="Imóveis Vila Real | https://facebook.com/groups/123 | FCOSTA 1"></textarea><p><button class="b" data-act="addgr">Adicionar</button></p></div>';
+  +'<textarea id="bulk" placeholder="Imóveis Vila Real | https://facebook.com/groups/123 | FCOSTA 1"></textarea><p><button class="b" data-act="addgr">Adicionar</button> <button class="g" data-act="imppub">Trazer do Publicador</button></p></div>';
   h+='<div class="card"><h2>Meus grupos ('+S.grupos.length+')</h2>';
   if(!S.grupos.length)h+='<p class="mut">Nenhum grupo ainda.</p>';
   S.grupos.forEach(function(g){
@@ -434,7 +438,8 @@ function hs(i){var s=String(i.id||i.titulo||""),n=0;for(var k=0;k<s.length;k++)n
 function ehAluguel(i){return /alug/i.test(i.finalidade||"")}
 function acao(i){return ehAluguel(i)?"para alugar":"à venda"}
 function tipoI(i){return (i.tipo||"imóvel").toLowerCase()}
-function localz(i){return [i.bairro,i.cidade].filter(Boolean).join(" – ")}
+function cid(c){c=String(c||"").replace(/\s*-\s*[A-Za-z]{2}$/,"").trim();return /^sao paulo$/i.test(c)?"São Paulo":c}
+function localz(i){return [i.bairro,cid(i.cidade)].filter(Boolean).join(" – ")}
 function pl(n,a,b){return n+" "+(String(n).trim()==="1"?a:b)}
 function dets(i){var a=[];if(i.quartos)a.push("🛏️ "+pl(i.quartos,"quarto","quartos"));if(i.banheiros)a.push("🛁 "+pl(i.banheiros,"banheiro","banheiros"));if(i.vagas)a.push("🚗 "+pl(i.vagas,"vaga","vagas"));if(i.area)a.push("📐 "+i.area+" m²");return a.join(" · ")}
 function dtp(i){var a=[];if(i.quartos)a.push(pl(i.quartos,"quarto","quartos"));if(i.banheiros)a.push(pl(i.banheiros,"banheiro","banheiros"));if(i.vagas)a.push(pl(i.vagas,"vaga","vagas"));if(i.area)a.push(i.area+" m²");return a.join("  •  ")}
@@ -442,8 +447,8 @@ function resumo(i,n){var d=String(i.descricao||"").replace(/\s+/g," ").trim();re
 function hk(i){return cap1(fill(HOOKS[(hs(i)+rvar)%HOOKS.length],i,WZ()))}
 function rastreio(i,rede){
   var base="https://"+siteU(),q="utm_source="+encodeURIComponent(rede)+"&utm_medium=organico&utm_campaign="+encodeURIComponent(i.codigo||slugf(i.titulo)||"imovel");
-  if(i.siteId)base+="/imovel?id="+encodeURIComponent(i.siteId);
-  return base+(base.indexOf("?")>-1?"&":"/?")+q;
+  var sg=String(i.slug||"").replace(/^\/+|\/+$/g,"");if(sg&&/^[a-z0-9-]+$/.test(sg))base+="/"+sg;else if(i.siteId)base+="/imovel?id="+encodeURIComponent(i.siteId);
+  return base+(base.indexOf("?")>-1?"&":"?")+q;
 }
 function tagsFor(i,n){
   var b=slugf(i.bairro),t=slugf(i.tipo)||"imovel",al=ehAluguel(i),loc=[];
@@ -698,10 +703,13 @@ document.addEventListener("click",function(ev){
     });save();render();
   }
   else if(a==="addgr"){
-    document.getElementById("bulk").value.split("\n").forEach(function(l){
+    var nAdd=0;document.getElementById("bulk").value.split("\n").forEach(function(l){
       var q=l.split("|").map(function(x){return x.trim()});
-      if(q[0])S.grupos.push({id:uid(),nome:q[0],url:q[1]||"",nicho:q[2]||"",last:0});
-    });save();render();
+      if(/^https?:\/\//i.test(q[0])&&!q[1]){q[1]=q[0];var mg=q[0].match(/groups\/([^\/?#]+)/);q[0]="Grupo "+(mg?mg[1]:q[0].replace(/^https?:\/\/(www\.)?/,"").slice(0,24))}
+      if(q[0]&&gAdd(q[0],q[1]||"",q[2]||""))nAdd++;
+    });save();alert(nAdd?nAdd+" grupo(s) adicionado(s).":"Nenhum grupo novo (campo vazio ou já cadastrados).");render();
+  }
+  else if(a==="imppub"){var nn=trazerGruposPub();alert(nn?nn+" grupo(s) trazido(s) do Publicador.":"Não encontrei grupos novos no Publicador deste aparelho.");render()
   }
   else if(a==="cfg"){
     var c=S.cfg;c.whats=document.getElementById("c_whats").value.trim();
@@ -734,5 +742,5 @@ try{var tt=JSON.parse(localStorage.getItem("painel_tema2"))||"light";document.do
 document.getElementById("tema").addEventListener("click",function(){var d=document.documentElement,c=d.getAttribute("data-theme")||(window.matchMedia&&matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"),n=c==="dark"?"light":"dark";d.setAttribute("data-theme",n);try{localStorage.setItem("painel_tema2",JSON.stringify(n))}catch(e){}});
 document.getElementById("brand").addEventListener("click",function(){tab="hoje";edit="";render()});
 })();
-load();render();sincronizar(true);
+load();trazerGruposPub();render();sincronizar(true);
 </script></body></html>

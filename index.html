@@ -34,7 +34,7 @@ input,select,textarea{width:100%;padding:11px;border:1px solid var(--l);border-r
 
 <div class="box" id="pn" hidden>
 <b id="tt"></b>
-<div class="row"><img id="ft" alt="" style="max-width:120px;border-radius:10px;display:none;flex:none"><div><a class="btn o" id="ver" target="_blank" rel="noopener">Ver no site</a> <a class="btn o" id="bf" target="_blank" rel="noopener">Baixar foto</a></div></div>
+<div class="row"><img id="ft" alt="" style="max-width:120px;border-radius:10px;display:none;flex:none"><div><a class="btn o" id="ver" target="_blank" rel="noopener">Ver no site</a> <button class="btn o" id="bf" type="button">Baixar foto</button></div></div>
 <div class="tabs" id="tb" style="margin-top:12px"></div>
 <textarea id="tx" aria-label="Texto da publicação"></textarea>
 <div class="row"><button class="btn" id="cp">Copiar texto</button><a class="btn g" id="ab" target="_blank" rel="noopener">Abrir rede</a><button class="btn o" id="rg">Marcar como publicado</button></div>
@@ -85,28 +85,46 @@ function arr(f){return f?(Array.isArray(f)?f:Object.keys(f).map(function(k){retu
 function slug(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')}
 function preco(p){if(p==null||p==='')return 'Consulte';var s=String(p).trim();return /^\d[\d.,]*$/.test(s)?'R$ '+s:s}
 function esc(s){return String(s||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function norm(d){
+ var tot=0,ign=0;
+ var l=Object.keys(d).map(function(id){var i=d[id];if(!i||typeof i!=='object'){return null}tot++;i.id=id;i.fts=arr(i.fotos);if(i.fotoDestaque&&i.fts.indexOf(i.fotoDestaque)<0)i.fts.unshift(i.fotoDestaque);return i})
+  .filter(function(i){if(!i)return false;if(i.publicado===false||i.status==='panfleto'||/^\(Exemplo\)/.test(i.titulo||'')){ign++;return false}return true})
+  .sort(function(a,b){return (a.status==='vendido')-(b.status==='vendido')||String(b.atualizado||b.criado||'').localeCompare(String(a.atualizado||a.criado||''))});
+ return {l:l,tot:tot,ign:ign}}
 function carregar(){
  $('cnt').textContent='Carregando imóveis…';
- fetch(DB+'/fcosta_imoveis.json').then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
-  d=d||{};ALL=Object.keys(d).map(function(id){var i=d[id];if(!i||typeof i!=='object')return null;i.id=id;i.fts=arr(i.fotos);return i})
-   .filter(function(i){return i&&i.publicado!==false&&i.status!=='panfleto'&&!/^\(Exemplo\)/.test(i.titulo||'')})
-   .sort(function(a,b){return String(b.atualizado||'').localeCompare(String(a.atualizado||''))});
-  lista()}).catch(function(){$('cnt').textContent='Não consegui ler o Painel ADM agora. Verifique a internet e toque em Atualizar lista.'})}
+ fetch(DB+'/fcosta_imoveis.json').then(function(r){
+  if(r.status===401||r.status===403)throw 'perm';
+  if(!r.ok)throw 'http'+r.status;return r.json()}).then(function(d){
+  if(d&&d.error)throw 'perm';
+  if(!d||!Object.keys(d).length){ALL=[];lista();$('cnt').textContent='O Painel ADM está sem imóveis cadastrados (nada em fcosta_imoveis).';return}
+  var n=norm(d);ALL=n.l;
+  try{localStorage.setItem('fcosta_idx_cache',JSON.stringify({t:Date.now(),d:d}))}catch(e){}
+  lista();
+  if(!ALL.length)$('cnt').textContent='Há '+n.tot+' item(ns) no Painel ADM, mas todos estão como panfleto ou “Publicado no site = Não”. Ative “Publicado no Site? Sim” no Painel ADM.'}).catch(function(e){
+  var msg=e==='perm'?'O Firebase não deixou ler os imóveis (regras de segurança). Veja a nota abaixo.':'Sem conexão com o Painel ADM agora.',c=null;
+  try{c=JSON.parse(localStorage.getItem('fcosta_idx_cache')||'null')}catch(x){}
+  if(c&&c.d){ALL=norm(c.d).l;lista();$('cnt').textContent='⚠ '+msg+' Mostrando a última lista salva ('+new Date(c.t).toLocaleString('pt-BR')+'): '+ALL.length+' imóvel(is).'}
+  else{ALL=[];lista();$('cnt').textContent='⚠ '+msg+' Toque em “Atualizar lista”.'}
+  if(e==='perm')$('cnt').insertAdjacentHTML('afterend','<p class="m" id="pm">Para corrigir: no Firebase, em Realtime Database → Regras, deixe <b>fcosta_imoveis</b> com <b>".read": true</b>. Esta é a mesma regra que a vitrine do site usa.</p>')})}
 function lista(){
  var q=slug($('q').value),s=$('fs').value;
  var l=ALL.filter(function(i){return (!s||i.status===s)&&(!q||slug([i.codigo,i.titulo,i.bairro,i.cidade,i.tipo].join(' ')).indexOf(q)>-1)});
- $('cnt').textContent=l.length+' imóvel(is) do Painel ADM';
+ var pm=document.getElementById('pm');if(pm)pm.remove();$('cnt').textContent=l.length+' imóvel(is) do Painel ADM'+(ALL.length!==l.length?' (de '+ALL.length+')':'');
  $('ls').innerHTML=l.map(function(i){var f=i.fotoDestaque||i.fts[0]||'';
   return '<button class="im'+(cur&&cur.id===i.id?' on':'')+'" data-id="'+esc(i.id)+'">'+(f?'<img loading="lazy" src="'+esc(f)+'" alt="">':'<img alt="">')+'<div><b>'+esc(i.codigo||'')+' · '+esc(i.titulo)+'</b><span>'+esc(i.bairro||'')+' · '+esc(preco(i.preco))+(i.status==='vendido'?' · VENDIDO':'')+'</span></div></button>'}).join('')}
 $('ls').onclick=function(e){var b=e.target.closest('.im');if(!b)return;cur=ALL.filter(function(i){return i.id===b.dataset.id})[0];escolher()};
 $('q').oninput=lista;$('fs').onchange=lista;$('rec').onclick=carregar;
-function link(red){return SITE+'/imovel?id='+encodeURIComponent(cur.id)+'&utm_source='+slug(red)+'&utm_medium=organico&utm_campaign='+slug(cur.codigo||cur.id)}
+function base(i){var sg=String(i.slug||'').replace(/^\/+|\/+$/g,'');return sg&&/^[a-z0-9-]+$/.test(sg)?SITE+'/'+sg:SITE+'/imovel?id='+encodeURIComponent(i.id)}
+function link(red){var b=base(cur);return b+(b.indexOf('?')>-1?'&':'?')+'utm_source='+slug(red)+'&utm_medium=organico&utm_campaign='+slug(cur.codigo||cur.id)}
 function tags(){var i=cur,t=['#fcostacorretor','#corretordeimoveis','#imoveissp'],ti=slug(i.tipo);
  if(ti)t.push(i.status==='aluguel'?'#'+ti+'paraalugar':'#'+ti+'avenda');
  if(i.bairro)t.push('#'+slug(i.bairro));
  t.push(i.status==='aluguel'?'#alugarsp':'#imoveisavenda','#sonhodacasapropria','#financiamentoimobiliario','#saopaulo','#zonaleste');return t.join(' ')}
-function det(){var i=cur,a=[];if(i.quartos)a.push('🛏 '+i.quartos+' quarto(s)');if(i.banheiros)a.push('🚿 '+i.banheiros+' banheiro(s)');if(i.vagas)a.push('🚗 '+i.vagas+' vaga(s)');if(i.area)a.push('📐 '+i.area+' m²');return a.join(' · ')}
-function loc(){return [cur.bairro,cur.cidade].filter(Boolean).join(' - ')}
+function pl(n,a,b){return n+' '+(String(n).trim()==='1'?a:b)}
+function det(){var i=cur,a=[];if(i.quartos)a.push('🛏 '+pl(i.quartos,'quarto','quartos'));if(i.banheiros)a.push('🚿 '+pl(i.banheiros,'banheiro','banheiros'));if(i.vagas)a.push('🚗 '+pl(i.vagas,'vaga','vagas'));if(i.area)a.push('📐 '+i.area+' m²');return a.join(' · ')}
+function cid(c){c=String(c||'').replace(/\s*-\s*[A-Za-z]{2}$/,'').trim();return /^sao paulo$/i.test(c)?'São Paulo':c}
+function loc(){return [cur.bairro,cid(cur.cidade)].filter(Boolean).join(' - ')}
 function fin(){return cur.status==='aluguel'?'ALUGAR':'À VENDA'}
 var REDES={
  'WhatsApp':{ic:'💬',dica:'Envie para listas de transmissão e grupos de clientes. Use a foto de capa junto.',url:function(t){return 'https://wa.me/?text='+encodeURIComponent(t)},
@@ -133,10 +151,11 @@ function escolher(){
  var f=cur.fotoDestaque||cur.fts[0]||'';
  $('tt').textContent=(cur.codigo||'')+' · '+cur.titulo;
  $('ft').style.display=f?'block':'none';if(f)$('ft').src=f;
- $('bf').href=f||'#';$('bf').style.display=f?'inline-flex':'none';
- $('ver').href=SITE+'/imovel?id='+encodeURIComponent(cur.id);
+ $('bf').style.display=f?'inline-flex':'none';$('bf').dataset.u=f;
+ $('ver').href=base(cur);
  $('tb').innerHTML=Object.keys(REDES).map(function(r){return '<button data-r="'+r+'" class="'+(r===rede?'on':'')+'">'+REDES[r].ic+' '+(r==='Facebook'?'Facebook · Grupos':r)+'</button>'}).join('');
  aplicar();$('pn').scrollIntoView({behavior:'smooth',block:'start'})}
+$('bf').onclick=function(){var u=this.dataset.u;if(!u)return;$('ms').textContent='Baixando foto…';fetch(u).then(function(r){return r.blob()}).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='fcosta-'+(cur.codigo||'imovel')+'.jpg';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1500);$('ms').textContent='✅ Foto baixada.'}).catch(function(){window.open(u,'_blank');$('ms').textContent='Abri a foto em outra aba: segure o dedo sobre ela e escolha Salvar imagem.'})};
 $('tb').onclick=function(e){var b=e.target.closest('button');if(!b)return;rede=b.dataset.r;Array.prototype.forEach.call($('tb').children,function(x){x.className=x.dataset.r===rede?'on':''});aplicar()};
 function aplicar(){var R=REDES[rede];$('tx').value=R.txt();$('ab').textContent='Abrir '+rede;$('ab').href=R.url($('tx').value);$('dica').textContent='💡 '+R.dica;$('ms').textContent='';gShow()}
 $('tx').oninput=function(){$('ab').href=REDES[rede].url($('tx').value)};
