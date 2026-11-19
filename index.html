@@ -36,13 +36,15 @@ input,select,textarea{width:100%;padding:11px;border:1px solid var(--l);border-r
 
 <div class="box" id="pn" hidden>
 <b id="tt"></b>
-<div class="row"><img id="ft" alt="" style="max-width:120px;border-radius:10px;display:none;flex:none"><div><a class="btn o" id="ver" target="_blank" rel="noopener">Ver no site</a> <button class="btn o" id="bf" type="button">Baixar foto</button></div></div>
+<div class="row"><img id="ft" alt="" style="max-width:120px;border-radius:10px;display:none;flex:none"><div><a class="btn o" id="ver" target="_blank" rel="noopener">Ver no site</a> <button class="btn o" id="bf" type="button">Baixar foto</button> <a class="btn o" id="ed" target="_blank" rel="noopener">✏️ Editar no Painel</a> <a class="btn o" id="tr" target="_blank" rel="noopener">🎬 Gerar tour</a> <button class="btn o" id="fl" type="button">🖨 Folheto</button></div></div>
 <div class="tabs" id="tb" style="margin-top:12px"></div>
 <textarea id="tx" aria-label="Texto da publicação"></textarea>
 <div class="row"><button class="btn" id="cp">Copiar texto</button><a class="btn g" id="ab" target="_blank" rel="noopener">Abrir rede</a><button class="btn o" id="rg">Marcar como publicado</button></div>
 <p class="m" id="ms" role="status"></p>
 <p class="m" id="dica"></p>
 <div id="gp" hidden style="margin-top:10px"></div>
+<div id="fp" hidden style="margin-top:12px"><b>Folheto do imóvel</b><canvas id="fc" style="width:100%;max-width:360px;display:block;margin:8px 0;border-radius:10px;border:1px solid var(--l)"></canvas>
+<div class="row"><button class="btn" id="fi" type="button">Baixar imagem</button><button class="btn" id="fd" type="button">Baixar PDF</button><button class="btn g" id="fs2" type="button">Salvar no site (FCP)</button></div><p class="m" id="fm" role="status"></p></div>
 </div>
 
 <h2>Plano orgânico de hoje</h2>
@@ -80,6 +82,8 @@ input,select,textarea{width:100%;padding:11px;border:1px solid var(--l);border-r
 <a href="ferramentas.html"><b>Todas as ferramentas</b><span class="m">Lista completa</span></a>
 <a href="portfolio-fcosta.html"><b>Portfólio</b><span class="m">Vitrine de imóveis</span></a></div>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 var FALHA=0,DB='https://fcosta2026-847c3-default-rtdb.firebaseio.com',SITE='https://fcostacorretor.com',TEL='5511993509109',ASS='Sérgio Costa · Corretor de Imóveis\nCRECI-SP 294791-F · CNAI 52708\n📲 WhatsApp (11) 99350-9109';
 var $=function(i){return document.getElementById(i)},ALL=[],cur=null,rede='Facebook';
@@ -168,7 +172,7 @@ function escolher(){
  $('tt').textContent=(cur.codigo||'')+' · '+cur.titulo;
  $('ft').style.display=f?'block':'none';$('ft').removeAttribute('referrerpolicy');$('ft').dataset.n=0;if(f)$('ft').src=f;$('ft').onerror=function(){var k=(+this.dataset.n||0)+1;if(cur&&cur.fts[k]){this.dataset.n=k;this.src=cur.fts[k];return}this.style.display='none';$('ms').textContent='⚠ A foto deste imóvel não abriu. Confira o endereço em “Diagnóstico das fotos”.'};
  $('bf').style.display=f?'inline-flex':'none';$('bf').dataset.u=f;
- $('ver').href=base(cur);
+ $('ver').href=base(cur);ligar();
  $('tb').innerHTML=Object.keys(REDES).map(function(r){return '<button data-r="'+r+'" class="'+(r===rede?'on':'')+'">'+REDES[r].ic+' '+(r==='Facebook'?'Facebook · Grupos':r)+'</button>'}).join('');
  aplicar();$('pn').scrollIntoView({behavior:'smooth',block:'start'})}
 $('bf').onclick=function(){var u=this.dataset.u;if(!u)return;$('ms').textContent='Baixando foto…';fetch(u).then(function(r){return r.blob()}).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='fcosta-'+(cur.codigo||'imovel')+'.jpg';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1500);$('ms').textContent='✅ Foto baixada.'}).catch(function(){window.open(u,'_blank');$('ms').textContent='Abri a foto em outra aba: segure o dedo sobre ela e escolha Salvar imagem.'})};
@@ -306,6 +310,51 @@ document.addEventListener('change',function(ev){
   if(c.checked&&GR.filter(function(x){return x.sel}).length>=MAXSEL){gmsg='Máximo de 3 grupos por vez, para proteger sua conta.';c.checked=false;gShow();return}
   g.sel=c.checked;gShow();
 });
+
+
+/* ===== Ligação Painel ADM · Tour · Site ===== */
+var PAINEL='https://fcostacorretor.com/painel_adm.html',TOUR='tour-imoveis.html',CLD='dm0egn0ks',CLDP='fcosta_imoveis';
+$('ver').onclick=function(e){e.preventDefault();if(!cur)return;var u=base(cur),w=window.open('about:blank','_blank');$('ms').textContent='Verificando se a página está no ar…';
+ fetch(u,{cache:'no-store'}).then(function(r){if(r.status===404)throw 404;$('ms').textContent='';if(w)w.location=u;else location.href=u})
+ .catch(function(x){if(x===404){if(w)w.close();$('ms').innerHTML='⚠ Esta página ainda não foi publicada no site. <a href="'+PAINEL+'?publicar='+encodeURIComponent(cur.id)+'" target="_blank" rel="noopener"><b>Publicar agora pelo Painel ADM</b></a> e aguarde cerca de 1 minuto.'}else if(w)w.location=u})};
+function ligar(){$('ed').href=PAINEL+'?editar='+encodeURIComponent(cur.id);$('tr').href=TOUR+'?imovel='+encodeURIComponent(cur.id);$('fp').hidden=true}
+/* Folheto: desenha no canvas (imagem 1080x1350 e PDF A4) */
+function cImg(u){return new Promise(function(ok,no){var m=new Image();m.crossOrigin='anonymous';m.onload=function(){ok(m)};m.onerror=no;m.src=u})}
+function quebra(c,t,x,y,mw,lh,max){var p=String(t).split(' '),l='',n=0;for(var k=0;k<p.length;k++){var q=l?l+' '+p[k]:p[k];if(c.measureText(q).width>mw&&l){c.fillText(l,x,y);y+=lh;l=p[k];if(++n>=max-1){break}}else l=q}c.fillText(n>=max-1&&k<p.length-1?l+'…':l,x,y);return y+lh}
+function desenha(cv,w,h,foto,logo){
+ cv.width=w;cv.height=h;var c=cv.getContext('2d'),s=w/1080,i=cur,ph=h*.56;
+ c.fillStyle='#0b1a2e';c.fillRect(0,0,w,h);
+ if(foto){var r=Math.max(w/foto.width,ph/foto.height),dw=foto.width*r,dh=foto.height*r;c.save();c.beginPath();c.rect(0,0,w,ph);c.clip();c.drawImage(foto,(w-dw)/2,(ph-dh)/2,dw,dh);c.restore()}
+ var g=c.createLinearGradient(0,ph-160*s,0,ph);g.addColorStop(0,'rgba(11,26,46,0)');g.addColorStop(1,'#0b1a2e');c.fillStyle=g;c.fillRect(0,ph-160*s,w,160*s);
+ c.fillStyle='#FFD400';var tg=i.status==='aluguel'?'PARA ALUGAR':'À VENDA';c.font='800 '+34*s+'px system-ui,sans-serif';var tw=c.measureText(tg).width+48*s;c.fillRect(40*s,40*s,tw,64*s);c.fillStyle='#000';c.textBaseline='middle';c.fillText(tg,64*s,73*s);
+ c.textBaseline='alphabetic';c.fillStyle='#fff';c.textAlign='right';c.font='700 '+30*s+'px system-ui,sans-serif';c.fillText(i.codigo||'',w-40*s,80*s);c.textAlign='left';
+ var y=ph+30*s;c.fillStyle='#fff';c.font='800 '+54*s+'px system-ui,sans-serif';y=quebra(c,i.titulo||'',50*s,y+40*s,w-100*s,62*s,2);
+ c.fillStyle='#b9c6dc';c.font='600 '+34*s+'px system-ui,sans-serif';c.fillText('📍 '+loc(),50*s,y+6*s);y+=54*s;
+ var d=det();if(d){c.font='600 '+32*s+'px system-ui,sans-serif';c.fillText(d,50*s,y);y+=60*s}
+ c.fillStyle='#FFD400';c.font='900 '+86*s+'px system-ui,sans-serif';c.fillText(preco(i.preco),50*s,Math.min(y+50*s,h-300*s));
+ var by=h-230*s;c.fillStyle='#fff';c.fillRect(0,by,w,230*s);
+ if(logo){var lh2=130*s,lw=logo.width*lh2/logo.height;c.drawImage(logo,40*s,by+50*s,Math.min(lw,260*s),lh2)}
+ c.fillStyle='#0b1a2e';c.font='800 '+34*s+'px system-ui,sans-serif';c.fillText('Sérgio Costa · Corretor de Imóveis',330*s,by+85*s);
+ c.font='600 '+28*s+'px system-ui,sans-serif';c.fillText('CRECI-SP 294791-F · CNAI 52708',330*s,by+127*s);
+ c.fillStyle='#1b7a3f';c.font='800 '+36*s+'px system-ui,sans-serif';c.fillText('WhatsApp (11) 99350-9109',330*s,by+178*s);
+ try{var q=qrcode(0,'M');q.addData(base(cur));q.make();var n=q.getModuleCount(),m=160*s/n,qx=w-200*s,qy=by+35*s;c.fillStyle='#fff';c.fillRect(qx-8*s,qy-8*s,176*s,176*s);c.fillStyle='#000';for(var a=0;a<n;a++)for(var b=0;b<n;b++)if(q.isDark(a,b))c.fillRect(qx+b*m,qy+a*m,m+.5,m+.5);c.fillStyle='#0b1a2e';c.font='700 '+20*s+'px system-ui,sans-serif';c.textAlign='center';c.fillText('Veja no site',qx+80*s,qy+190*s);c.textAlign='left'}catch(x){}
+}
+function fMsg(t){$('fm').textContent=t}
+function fPrep(w,h){return Promise.all([cImg(cur.fts[0]||''),cImg($('logo').src).catch(function(){return null})]).then(function(r){desenha($('fc'),w,h,r[0],r[1])})}
+function fBlob(w,h){return fPrep(w,h).then(function(){return new Promise(function(ok){$('fc').toBlob(ok,'image/jpeg',.92)})})}
+function baixa(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},3000)}
+$('fl').onclick=function(){$('fp').hidden=false;fMsg('Montando folheto…');fPrep(1080,1350).then(function(){fMsg('');$('fp').scrollIntoView({behavior:'smooth',block:'nearest'})}).catch(function(){fMsg('⚠ Não consegui carregar a foto do imóvel (sem foto ou bloqueada). Confira as fotos no Painel ADM.')})};
+$('fi').onclick=function(){fMsg('Gerando imagem…');fBlob(1080,1350).then(function(b){baixa(b,'folheto-'+(cur.codigo||'imovel')+'.jpg');fMsg('✅ Imagem baixada.')}).catch(function(){fMsg('⚠ Falha ao gerar a imagem.')})};
+function fPdf(){return fBlob(1240,1754).then(function(b){return new Promise(function(ok){var r=new FileReader();r.onload=function(){var P=window.jspdf.jsPDF,d=new P({unit:'mm',format:'a4'});d.addImage(r.result,'JPEG',0,0,210,297);ok(d.output('blob'))};r.readAsDataURL(b)})})}
+$('fd').onclick=function(){fMsg('Gerando PDF…');fPdf().then(function(b){baixa(b,'folheto-'+(cur.codigo||'imovel')+'.pdf');fMsg('✅ PDF baixado.')}).catch(function(){fMsg('⚠ Falha ao gerar o PDF.')})};
+function cldUp(b,nome){var fd=new FormData();fd.append('file',b,nome);fd.append('upload_preset',CLDP);return fetch('https://api.cloudinary.com/v1_1/'+CLD+'/image/upload',{method:'POST',body:fd}).then(function(r){return r.json()}).then(function(j){if(!j.secure_url)throw new Error(j.error&&j.error.message||'cloudinary');return j.secure_url})}
+$('fs2').onclick=function(){var a=aGet();if(!a||!a.refresh){fMsg('⚠ Entre em “🔑 Acesso total” (e-mail e senha do Painel ADM) para salvar o folheto no site.');var ac=$('ac');if(ac)ac.open=true;return}
+ var img,pdf='',i=cur;fMsg('Enviando imagem…');
+ fBlob(1080,1350).then(function(b){return cldUp(b,'folheto-'+i.codigo+'.jpg')}).then(function(u){img=u;fMsg('Enviando PDF…');return fPdf().then(function(b){return cldUp(b,'folheto-'+i.codigo+'.pdf')}).then(function(p){pdf=p}).catch(function(){})})
+ .then(function(){return aUrl('fcosta_imoveis')}).then(function(u){return fetch(u).then(function(r){return r.json()}).then(function(d){var mx=0;Object.keys(d||{}).forEach(function(k){var x=d[k]||{};if(x.status==='panfleto'){var n=parseInt(x.numeroCodigo,10)||0;if(n>mx)mx=n}});
+  var ag=new Date().toISOString(),rec={titulo:'Folheto '+i.codigo+' · '+i.titulo,status:'panfleto',numeroCodigo:mx+1,codigo:'FCP'+String(mx+1).padStart(3,'0'),panfletoUrl:img,panfletoTipo:'imagem',panfletoPdf:pdf,fotos:[],fotoDestaque:img,imovelRef:i.id,bairro:i.bairro||'',cidade:i.cidade||'',preco:i.preco||'',publicado:true,destaque:false,criado:ag,atualizado:ag};
+  return fetch(u,{method:'POST',body:JSON.stringify(rec)})})}).then(function(r){if(!r.ok)throw new Error('http'+r.status);fMsg('✅ Folheto salvo na seção FCP do Painel ADM'+(pdf?' (imagem e PDF).':' (imagem; o PDF não subiu, use “Baixar PDF”).'))})
+ .catch(function(e){fMsg('⚠ Não consegui salvar: '+(e&&e.message||e))})};
 
 /* ===== Acesso ao Firebase (e-mail e senha digitados no aparelho; a senha NÃO é guardada) ===== */
 var FAPI='AIzaSyBo3zQ-yUNJ2Zk9d6jkEpslF-bsrFcRu8I',AK='fcosta_auth';
