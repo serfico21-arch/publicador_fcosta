@@ -337,7 +337,7 @@ function sincronizar(manual,cb){
     d=d||{};var add=0,upd=0,rem=0,ids={},keys=Object.keys(d);
     S.imoveis=S.imoveis.filter(function(x){return !/^\(Exemplo\) /.test(x.titulo||"")});
     keys.forEach(function(id){
-      var i=d[id];if(!i||typeof i!=="object"||i.publicado===false||i.status==="panfleto")return;
+      var i=d[id];if(!i||typeof i!=="object"||i.publicado===false||i._del===true||i._excluido===true||i.status==="panfleto")return;
       var fs=achaFotos(i);
       var pr=numPreco(i.preco),pd=pr>=700000?"alto":pr>=300000?"medio":"baixo";
       var sg={venda:"FCV",aluguel:"FCA",lancamento:"FCL",vendido:"FCV"}[i.status]||"FCV";
