@@ -40,6 +40,16 @@ button.go:disabled{opacity:.6}
 <h1>Agente FCosta Imóveis</h1>
 <p class="sub">Anúncios, captação, lançamentos e conteúdo imobiliário para Facebook e Instagram, com a identidade da FCosta.</p>
 
+<div class="card" id="keybox" style="border:2px solid var(--ac)">
+<b>🔑 Chave do Google AI Studio</b>
+<div id="keyst" class="hint" style="font-size:14px;margin:4px 0 8px"></div>
+<div id="keyform">
+<input id="keyin" type="password" placeholder="Cole aqui a chave (começa com AIza...)" autocomplete="off">
+<button class="go" id="keysave" style="margin-top:8px">Salvar chave</button>
+<div class="hint">Fica salva só neste aparelho. Para gerar: aistudio.google.com, depois "Get API key".</div>
+</div>
+<button class="tab" id="keychg" style="display:none;width:100%">Trocar ou remover chave</button>
+</div>
 <div class="card">
 <label>Nome do negócio</label><input id="nome" value="FCosta Corretor">
 <label>O que vende / serviço</label><textarea id="prod">Corretagem imobiliária: compra, venda e locação; lançamentos e portal do investidor; financiamento; avaliação (PTAM), perícia e consultoria judicial; chácara para eventos em Suzano; contratos e administração de imóveis.</textarea>
@@ -62,7 +72,6 @@ button.go:disabled{opacity:.6}
 
 <button class="go" id="go">Gerar</button>
 <div class="hint" id="hint"></div>
-<button class="tab" id="cfg" style="margin-top:10px;width:100%"></button>
 
 <div class="card out" id="res" style="display:none;margin-top:14px">
 <div id="txt"></div>
@@ -149,13 +158,14 @@ ${m.x?"\nCONTEÚDO DO CLIENTE:\n"+$("extraT").value:""}`;
   last=r.text;$("txt").innerHTML=md(last);
  }catch(e){
   if(e&&e.text){last=e.text;$("txt").innerHTML=md(last)}
-  hint.className="hint err";hint.textContent=e&&e.code==="rate_limited"?"Muitas solicitações. Aguarde um pouco.":e&&e.code==="chave"?"Chave do Google inválida ou sem permissão. Toque em Configurar chave.":e&&e.code==="sem_chave"?"Toque em \"Configurar chave do Google\" abaixo e cole sua chave.":"Não foi possível gerar agora. Tente de novo.";
+  hint.className="hint err";if(e&&(e.code==="sem_chave"||e.code==="chave"))$("keybox").scrollIntoView({behavior:"smooth"});hint.textContent=e&&e.code==="rate_limited"?"Muitas solicitações. Aguarde um pouco.":e&&e.code==="chave"?"Chave do Google inválida ou sem permissão. Troque a chave no quadro azul no topo.":e&&e.code==="sem_chave"?"Cole sua chave do Google no quadro azul no topo da página.":"Não foi possível gerar agora. Tente de novo.";
  }
  btn.disabled=false;btn.textContent="Gerar";
  $("res").scrollIntoView({behavior:"smooth",block:"start"});
 };
-function upd(){$("cfg").textContent="⚙ Chave do Google: "+(getKey()?"configurada ✓":"não configurada")}
-$("cfg").onclick=()=>{const k=prompt("Cole sua chave do Google AI Studio. Ela fica salva só neste aparelho. Deixe vazio para remover.",getKey());if(k===null)return;try{k.trim()?localStorage.setItem("fc_gemini_key",k.trim()):localStorage.removeItem("fc_gemini_key")}catch(e){}upd()};
+function upd(){const k=getKey();$("keyst").textContent=k?"Configurada ✓ (salva neste aparelho)":"Ainda não configurada. Cole a chave abaixo para ativar a IA.";$("keyform").style.display=k?"none":"block";$("keychg").style.display=k?"block":"none";$("keybox").style.borderColor=k?"var(--bd)":"var(--ac)"}
+$("keysave").onclick=()=>{const k=$("keyin").value.trim();if(!k){$("keyin").focus();return}try{localStorage.setItem("fc_gemini_key",k)}catch(e){}$("keyin").value="";upd()};
+$("keychg").onclick=()=>{try{localStorage.removeItem("fc_gemini_key")}catch(e){}upd();$("keyin").focus()};
 upd();
 $("cp").onclick=async()=>{try{await navigator.clipboard.writeText(last);$("cp").textContent="Copiado ✓"}catch(e){$("cp").textContent="Selecione e copie"}setTimeout(()=>$("cp").textContent="Copiar",1500)};
 $("dl").onclick=()=>{const u=URL.createObjectURL(new Blob([last],{type:"text/plain;charset=utf-8"}));const a=document.createElement("a");a.href=u;a.download="fcosta-"+mode+".txt";a.click();URL.revokeObjectURL(u)};
